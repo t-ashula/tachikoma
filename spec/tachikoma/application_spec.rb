@@ -5,14 +5,14 @@ require 'fileutils'
 describe Tachikoma::Application do
   before :all do
     ENV.update('BUILD_FOR' => 'test')
-    open(File.join(File.dirname(__FILE__), '..', '..', 'data', 'test.yaml'), 'w') { |f|
+    open(File.join(File.dirname(__FILE__), '..', '..', 'data', 'test.yaml'), 'w') do |f|
       f.puts <<YAML
 url:
   'https://github.com/sanemat/bot-motoko-tachikoma.git'
 type:
   'fork'
 YAML
-    }
+    end
   end
 
   after :all do

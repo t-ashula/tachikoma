@@ -76,45 +76,37 @@ module Tachikoma
     end
 
     def bundler
-      Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
+      _update_packages('bundler') do
+        if File.exist?('Gemfile')
+          bundler_key_file = 'Gemfile'
+          bundler_lock_file = 'Gemfile.lock'
+        elsif File.exist?('gems.rb')
+          bundler_key_file = 'gems.rb'
+          bundler_lock_file = 'gems.locked'
+        else
+          bundler_key_file = 'Gemfile'
+          bundler_lock_file = 'Gemfile.lock'
+        end
         Bundler.with_clean_env do
           sh(*['ruby', '-i', '-pe', '$_.gsub! /^ruby/, "#ruby"', 'Gemfile'])
-          sh(*['git', 'config', 'user.name', @commiter_name])
-          sh(*['git', 'config', 'user.email', @commiter_email])
-          sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
-          if File.exist?('Gemfile')
-            @bundler_key_file = 'Gemfile'
-            @bundler_lock_file = 'Gemfile.lock'
-          elsif File.exist?('gems.rb')
-            @bundler_key_file = 'gems.rb'
-            @bundler_lock_file = 'gems.locked'
-          else
-            @bundler_key_file = 'Gemfile'
-            @bundler_lock_file = 'Gemfile.lock'
-          end
-          sh(*([
+          sh(*[
             'bundle',
-            '--gemfile', @bundler_key_file,
+            '--gemfile', bundler_key_file,
             '--no-deployment',
             '--without', 'nothing',
             '--path', 'vendor/bundle',
             @parallel_option
-          ].compact))
+          ].compact)
           sh(*%w(bundle update))
 
           if @bundler_restore_bundled_with
             # restore_bundled_with
-            lock_file_contents = File.read(@bundler_lock_file)
-            lock_file = RestoreBundledWith::Lock.restore(
-              lock_file_contents, @bundler_lock_file)
-            File.write(@bundler_lock_file, lock_file.body)
+            lock_file_contents = File.read(bundler_lock_file)
+            lock_file = RestoreBundledWith::Lock.restore(lock_file_contents, bundler_lock_file)
+            File.write(bundler_lock_file, lock_file.body)
           end
 
-          sh(*['git', 'add', @bundler_lock_file])
-          sh(*['git', 'commit', '-m', "Bundle update #{@readable_time}"]) do
-            # ignore exitstatus
-          end
-          sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
+          sh(*['git', 'add', bundler_lock_file])
         end
       end
     end
@@ -125,38 +117,20 @@ module Tachikoma
     end
 
     def carton
-      Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
-        sh(*['git', 'config', 'user.name', @commiter_name])
-        sh(*['git', 'config', 'user.email', @commiter_email])
-        sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
+      _update_packages('carton') do
         sh(*%w(carton install))
         sh(*%w(carton update))
         sh(*['git', 'add', 'carton.lock']) if File.exist?('carton.lock')
         sh(*['git', 'add', 'cpanfile.snapshot']) if File.exist?('cpanfile.snapshot')
-        sh(*['git', 'commit', '-m', "Carton update #{@readable_time}"]) do
-          # ignore exitstatus
-        end
-        sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
       end
     end
 
     def none
-      Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
-        sh(*['git', 'config', 'user.name', @commiter_name])
-        sh(*['git', 'config', 'user.email', @commiter_email])
-        sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
-        sh(*['git', 'commit', '--allow-empty', '-m', "None update #{@readable_time}"]) do
-          # ignore exitstatus
-        end
-        sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
-      end
+      _update_packages('none', allow_empty: true)
     end
 
     def david
-      Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
-        sh(*['git', 'config', 'user.name', @commiter_name])
-        sh(*['git', 'config', 'user.email', @commiter_email])
-        sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
+      _update_packages('david') do
         sh(*['david', 'update', '--warn404'])
         if File.exist?('npm-shrinkwrap.json')
           sh(*['rm', '-rf', 'node_modules/', 'npm-shrinkwrap.json'])
@@ -167,39 +141,35 @@ module Tachikoma
         else
           sh(*['git', 'add', 'package.json'])
         end
-        sh(*['git', 'commit', '-m', "David update #{@readable_time}"]) do
-          # ignore exitstatus
-        end
-        sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
       end
     end
 
     def composer
-      Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
-        sh(*['git', 'config', 'user.name', @commiter_name])
-        sh(*['git', 'config', 'user.email', @commiter_email])
-        sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
+      _update_packages('composer') do
         # FIXME: Use Octokit.api_endpoint for GitHub Enterprise
         sh(*['composer', 'config', 'github-oauth.github.com', @github_token])
         sh(*['composer', 'install', '--no-interaction'])
         sh(*['composer', 'update', '--no-interaction'])
         sh(*['git', 'add', 'composer.lock'])
-        sh(*['git', 'commit', '-m', "Composer update #{@readable_time}"]) do
-          # ignore exitstatus
-        end
-        sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
       end
     end
 
     def cocoapods
+      _update_packages('cocoapods') do
+        sh(*%w(pod install))
+        sh(*%w(pod update))
+        sh(*['git', 'add', 'Podfile.lock'])
+      end
+    end
+
+    def _update_packages(strategy, allow_empty: false)
       Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
         sh(*['git', 'config', 'user.name', @commiter_name])
         sh(*['git', 'config', 'user.email', @commiter_email])
         sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
-        sh(*%w(pod install))
-        sh(*%w(pod update))
-        sh(*['git', 'add', 'Podfile.lock'])
-        sh(*['git', 'commit', '-m', "Cocoapods update #{@readable_time}"]) do
+        yield
+        ae = allow_empty ? '--allow-empty' : ''
+        sh(*['git', 'commit', ae, '-m', "#{strategy.capitalize} update #{@readable_time}"]) do
           # ignore exitstatus
         end
         sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
