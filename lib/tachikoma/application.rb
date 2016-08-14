@@ -206,6 +206,21 @@ module Tachikoma
       end
     end
 
+    def glide
+      Dir.chdir("#{Tachikoma.repos_path}/#{@build_for}") do
+        sh(*['git', 'config', 'user.name', @commiter_name])
+        sh(*['git', 'config', 'user.email', @commiter_email])
+        sh(*['git', 'checkout', '-b', "tachikoma/update-#{@readable_time}", @base_remote_branch])
+        sh(*%w(glide install))
+        sh(*%w(glide up))
+        sh(*['git', 'add', 'glide.lock'])
+        sh(*['git', 'commit', '-m', "glide update #{@readable_time}"]) do
+          # ignore exitstatus
+        end
+        sh(*['git', 'push', @authorized_compare_url, "tachikoma/update-#{@readable_time}"])
+      end
+    end
+
     def pull_request
       @client = Octokit::Client.new access_token: @github_token
       @client.create_pull_request(

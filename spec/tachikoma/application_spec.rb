@@ -111,6 +111,19 @@ YAML
     end
   end
 
+  context 'if strategy is `glide`' do
+    before do
+      allow_any_instance_of(Tachikoma::Application).to receive(:load)
+      allow_any_instance_of(Tachikoma::Application).to receive(:fetch)
+      allow_any_instance_of(Tachikoma::Application).to receive(:pull_request)
+    end
+
+    it 'should be called `glide` method' do
+      expect_any_instance_of(Tachikoma::Application).to receive(:glide)
+      Tachikoma::Application.run 'glide'
+    end
+  end
+
   describe '#bundler_parallel_option' do
     subject { described_class.new }
 
