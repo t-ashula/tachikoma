@@ -254,7 +254,7 @@ module Tachikoma
     end
 
     def pull_request
-      unless @github_api_endpoint.nil?
+      unless @github_api_endpoint.empty?
         Octokit.configure do |c|
           c.api_endpoint = @github_api_endpoint
         end
