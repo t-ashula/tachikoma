@@ -58,6 +58,7 @@ module Tachikoma
       @pull_request_base = @configure['pull_request_base']
       @pull_request_head = "#{@target_head}:tachikoma/update-#{@readable_time}"
       @pull_request_title = (@configure['pull_request_title'] || 'Exec tachikoma update %s') % @readable_time
+      @github_api_endpoint = @configure['api_endpoint']
     end
 
     def clean
@@ -253,6 +254,11 @@ module Tachikoma
     end
 
     def pull_request
+      unless @github_api_endpoint.nil?
+        Octokit.configure do |c|
+          c.api_endpoint = @github_api_endpoint
+        end
+      end
       @client = Octokit::Client.new access_token: @github_token
       @client.create_pull_request(
         @pull_request_url,
